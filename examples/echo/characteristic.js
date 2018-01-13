@@ -1,6 +1,7 @@
 var util = require('util');
-
+var fs = require('fs');
 var bleno = require('../..');
+const { exec } = require('child_process');
 
 var BlenoCharacteristic = bleno.Characteristic;
 
@@ -18,8 +19,6 @@ var EchoCharacteristic = function() {
 util.inherits(EchoCharacteristic, BlenoCharacteristic);
 
 EchoCharacteristic.prototype.onReadRequest = function(offset, callback) {
-  console.log('EchoCharacteristic - onReadRequest: value = ' + this._value.toString('hex'));
-
   callback(this.RESULT_SUCCESS, this._value);
 };
 
@@ -27,7 +26,27 @@ EchoCharacteristic.prototype.onWriteRequest = function(data, offset, withoutResp
   this._value = data;
 
   console.log('EchoCharacteristic - onWriteRequest: value = ' + this._value.toString('hex'));
+  fs.writeFile('/etc/wpa_supplicant/wpa_supplicant.conf', this._value, function (err) {
+    if (err) 
+        return console.log(err);
+  });
+  console.log(this._value+ "written to file wpa_supplicant.conf" );
+  exec('sudo wpa_supplicant -iwlan0 -c/etc/wpa_supplicant/wpa_supplicant.conf',(error,stdout,stderr)=>{
+    if(error){
+      console.error('exec error: ${error}');
+      return;
+    }
+    console.log('wifi Successfully setted up!')
+    exec('ifdown wlan0 & ifup wlan0', (error, stdout, stderr) => {
+      if (error) {
+        console.error('exec error: ${error}');
+        return;
+      }
+      console.log('stdout: ${stdout}');
+      console.log('stderr: ${stderr}');
+    });
 
+  });
   if (this._updateValueCallback) {
     console.log('EchoCharacteristic - onWriteRequest: notifying');
 
@@ -50,3 +69,4 @@ EchoCharacteristic.prototype.onUnsubscribe = function() {
 };
 
 module.exports = EchoCharacteristic;
+
